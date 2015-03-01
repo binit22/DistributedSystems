@@ -22,22 +22,22 @@ import java.util.Set;
  */
 public class Bootstrap implements Runnable { 
   
-    private static HashMap<String, Integer> currentConnection; 
-    private static HashMap<String, Integer> serverId; 
+    private HashMap<String, Integer> currentConnection; 
+    private HashMap<String, Integer> serverId; 
   
-    private static boolean isPrimary = false; 
-    private static String primaryServerIP = null; 
-    private static int primaryServerPORT = -1; 
-    private static String CLIENT = "Client"; 
-    private static String SERVER = "Server"; 
-    public static String COLON = ":"; 
-    public static String CLIENT_EXIT = "Client left"; 
-    public static boolean FAILURE_REPORTED = false; 
-    public final String FAILURE = "FAILURE"; 
-    public final String ELECT_MESSAGE = "Elect"; 
-    public static int count = 1; 
-    public static String NewPrimary = "NewPrimary"; 
-    public static int SIZE = 2048; 
+    private boolean isPrimary = false; 
+    private String primaryServerIP = null; 
+    private int primaryServerPORT = -1; 
+    private String CLIENT = "Client"; 
+    private String SERVER = "Server"; 
+    private String COLON = ":"; 
+    private String CLIENT_EXIT = "Client left"; 
+    private boolean FAILURE_REPORTED = false; 
+    private final String FAILURE = "FAILURE"; 
+    private final String ELECT_MESSAGE = "Elect"; 
+    private int count = 1; 
+    private String NewPrimary = "NewPrimary"; 
+    private int SIZE = 2048; 
   
     // Initialization in constructor
     public Bootstrap() { 
@@ -60,7 +60,7 @@ public class Bootstrap implements Runnable {
             if (!serverId.containsKey(ip)) { 
   
                 currentConnection.put(address[0], 0); 
-                serverId.put(address[0] + ":" + port, count++); 
+                serverId.put(ip, count++); 
   
                 return "Connected"; 
             } else return "IP already Exists"; 
@@ -205,7 +205,7 @@ public class Bootstrap implements Runnable {
                         currentConnection.put(primaryServerIP, currentConnection.get(primaryServerIP)); 
   
                         System.out.println("Primary Server Selected: " + primaryServerIP + COLON + primaryServerPORT); 
-  
+                        FAILURE_REPORTED = false;
                     } else { 
                         value = "No Action Done"; 
                     } 

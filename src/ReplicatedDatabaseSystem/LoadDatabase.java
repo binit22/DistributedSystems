@@ -76,9 +76,8 @@ public class LoadDatabase {
   
         MongoClient mongoClient = new MongoClient( "localhost", 27017);
         DB db = mongoClient.getDB("mydb"); 
-        DBCollection items = db.getCollection("items"); 
-  
-  
+        DBCollection items = db.getCollection("items");
+
         for(int i=1;i<=5;i++) { 
             BasicDBObject doc = new BasicDBObject(); 
             doc.put("number",i); 
@@ -97,7 +96,6 @@ public class LoadDatabase {
         while (cursor.hasNext()) { 
             System.out.println(cursor.next()); 
         } 
-  
   
         BasicDBObject findTestItemQuery = new BasicDBObject(); 
         findTestItemQuery.put("task", "Write Code"); 

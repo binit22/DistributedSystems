@@ -23,30 +23,35 @@ import com.mongodb.Mongo;
  */
 public class Server extends Thread { 
 
-	public static Mongo mongo; 
-	public static DB db; 
-	public static DBCollection items; 
-	public static String return_data = ""; 
-	public static DatagramSocket serverSocket = null;
-	public static ServerSocket server = null;
+	private Mongo mongo; 
+	private DB db; 
+	private DBCollection items; 
+	private String return_data = ""; 
+	private DatagramSocket serverSocket = null;
+	private ServerSocket server = null;
 
-	public final String SERVER = "Server"; 
-	public final String UPDATE_TABLE = "UPDATE_TABLE"; 
-	public static final int SERVER_PORT = 6000; 
-	public final static String BOOTSTRAP_IP = "129.21.95.14"; 
-	public final static int BOOTSTRAP_PORT = 5000; 
-	public static String PRIMARY_SERVER_IP = null; 
-	public static int PRIMARY_SERVER_PORT = -1; 
-	public static boolean isPrimary = false; 
-	public final String COMMA = ","; 
-	public final String COLON = ":"; 
-	public final int size = 2048; 
-	public static int failure_Port = 3000; 
-	public static boolean reportFailure = true;
-	public static int maxId;
+	private final String SERVER = "Server"; 
+	private final String UPDATE_TABLE = "UPDATE_TABLE"; 
+	private final String NewPrimary = "NewPrimary"; 
+	private final String RETRIEVE = "RETRIEVE";
+	private final String DELETE = "DELETE";
+	private final String INSERT = "INSERT";
+	private final String FIND = "FIND";
+	private final String COMMA = ","; 
+	private final String COLON = ":"; 
+	private final int SERVER_PORT = 6000; 
+	private final String BOOTSTRAP_IP = "129.21.95.14"; 
+	private final int BOOTSTRAP_PORT = 5000; 
+	private final int size = 2048; 
+	private final int failure_Port = 3000; 
+	private String PRIMARY_SERVER_IP = null; 
+	private int PRIMARY_SERVER_PORT = -1; 
+	private boolean isPrimary = false; 
+	private boolean reportFailure = true;
+	private int maxId;
 
-	// stores Ip addresses of other active servers
-	public static HashMap<String, Integer> IPADDRESS_TABLE = new HashMap<String, Integer>(); 
+	// stores Ip addresses of other active servers- IP:Port, count
+	private static HashMap<String, Integer> IPADDRESS_TABLE = new HashMap<String, Integer>(); 
 
 	public Server() { 
 
@@ -71,7 +76,7 @@ public class Server extends Thread {
 	 * 
 	 * @return		data retrieved from the database
 	 */
-	public static String retrieve() { 
+	public String retrieve() { 
 
 		DBCursor cursor = items.find(); 
 		String prev_string = ""; 
@@ -93,7 +98,7 @@ public class Server extends Thread {
 	 * @param key		key to be searched
 	 * @return		result of the query
 	 */
-	public static String find_one(String key) { 
+	public String find_one(String key) { 
 
 		BasicDBObject allQuery = new BasicDBObject(); 
 		BasicDBObject fields = new BasicDBObject(); 
@@ -119,7 +124,7 @@ public class Server extends Thread {
 	 * @param key	attribute name
 	 * @param value		value of attribute
 	 */
-	public static void insert(String key, String value) { 
+	public void insert(String key, String value) { 
 		BasicDBObject doc = new BasicDBObject(); 
 		doc.put(key, value); 
 		items.insert(doc); 
@@ -132,7 +137,7 @@ public class Server extends Thread {
 	 * @param key		attribute name
 	 * @param value		value of attribute
 	 */
-	public static void delete(String key, String value) { 
+	public void delete(String key, String value) { 
 		BasicDBObject doc = new BasicDBObject(); 
 		doc.put(key, value); 
 
@@ -156,8 +161,9 @@ public class Server extends Thread {
 		try { 
 
 			byte[] sendData = new byte[size];
-			sendData = "NewPrimary".getBytes();
+			sendData = NewPrimary.getBytes();
 
+			// send to bootstrap server
 			InetAddress IPAddress = InetAddress.getByName(BOOTSTRAP_IP); 
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, BOOTSTRAP_PORT); 
 			serverSocket.send(sendPacket); 
@@ -166,12 +172,10 @@ public class Server extends Thread {
 				String ip = it.next(); 
 				String ip_port[] = ip.split(COLON); 
 
+				// if IP address in the list is not its own then broadcast 
 				InetAddress myAddress = InetAddress.getLocalHost(); 
 				if (!ip_port[0].equalsIgnoreCase(myAddress.getHostAddress())) { 
-
-					sendData = new byte[size]; 
-					sendData = "NewPrimary".getBytes(); 
-
+					// broadcast to other active servers
 					IPAddress = InetAddress.getByName(ip_port[0]); 
 					int port = Integer.parseInt(ip_port[1]); 
 					sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port); 
@@ -209,11 +213,11 @@ public class Server extends Thread {
 				message = new String(receivePacket.getData()).trim(); 
 
 				// retrieves all data from dbms server
-				if (message.trim().equalsIgnoreCase("RETRIEVE")) { 
+				if (message.trim().equalsIgnoreCase(RETRIEVE)) { 
 					return_data = retrieve(); 
 
 				} // delete operation to delete record given a string
-				else if (message.trim().equalsIgnoreCase("DELETE")) { 
+				else if (message.trim().equalsIgnoreCase(DELETE)) { 
 
 					receiveData = new byte[size]; 
 					DatagramPacket receivePacket_temp = new DatagramPacket(receiveData, receiveData.length); 
@@ -225,7 +229,7 @@ public class Server extends Thread {
 					return_data = "DELETED"; 
 
 				} // insert operation to insert record given a string
-				else if ((message.trim().equalsIgnoreCase("INSERT"))) { 
+				else if ((message.trim().equalsIgnoreCase(INSERT))) { 
 
 					receiveData = new byte[size]; 
 					DatagramPacket receivePacket_temp = new DatagramPacket(receiveData, receiveData.length); 
@@ -237,7 +241,7 @@ public class Server extends Thread {
 					String[] input = received.split(COMMA); 
 
 					// if this is primary server, insert in its dbms server and replicate same to other servers
-					if (isPrimary) { 
+					if (isPrimary) {
 						insert(input[0].trim(), input[1].trim()); 
 
 						Set<String> key = IPADDRESS_TABLE.keySet(); 
@@ -278,7 +282,7 @@ public class Server extends Thread {
 					return_data = "INSERTED"; 
 
 				} // find operation to find record given a string
-				else if (message.trim().equalsIgnoreCase("FIND")) { 
+				else if (message.trim().equalsIgnoreCase(FIND)) {
 
 					System.out.println("In FIND"); 
 					receiveData = new byte[size]; 
@@ -287,10 +291,9 @@ public class Server extends Thread {
 					String received = new String(receivePacket_temp.getData()); 
 					System.out.println("In find received string" + received); 
 					return_data = find_one(received.trim()); 
-					System.out.println("Deletion Done !"); 
 
 				} // primary server updates its table when a new server comes into the system 
-				else if (message.trim().equalsIgnoreCase(UPDATE_TABLE)) { 
+				else if (message.trim().equalsIgnoreCase(UPDATE_TABLE)) {
 
 					System.out.println("New Server Joined: " + receivePacket.getAddress().getHostAddress().toString());
 					IPADDRESS_TABLE.put(receivePacket.getAddress().getHostAddress().toString() + COLON + receivePacket.getPort(), maxId + 1); 
@@ -298,7 +301,7 @@ public class Server extends Thread {
 					return_data = "";
 
 				} // insert data into this server's dbms
-				else if (message.trim().equalsIgnoreCase("insert_yourself")) { 
+				else if (message.trim().equalsIgnoreCase("insert_yourself")) {
 
 					receiveData = new byte[size]; 
 					DatagramPacket receivePacket_temp = new DatagramPacket(receiveData, receiveData.length); 
@@ -312,7 +315,7 @@ public class Server extends Thread {
 					return_data = "";
 
 				} // inform bootstrap server that client has left 
-				else if (message.trim().equalsIgnoreCase("exit")) { 
+				else if (message.trim().equalsIgnoreCase("exit")) {
 
 					return_data = "Client left"; 
 					sendData = new byte[size]; 
@@ -322,7 +325,7 @@ public class Server extends Thread {
 					serverSocket.send(sendPacket);
 
 				} // bootstrap asks this server to start election algorithm
-				else if (message.trim().equalsIgnoreCase("Elect")) { 
+				else if (message.trim().equalsIgnoreCase("Elect")) {
 
 					System.out.println("start election");
 					receiveData = new byte[size]; 
@@ -355,9 +358,9 @@ public class Server extends Thread {
 					String ip_port[] = ip.split(COLON); 
 					final_Address = InetAddress.getByName(ip_port[0]); 
 
-
+					// current server has max Id
 					if (ip_port[0].equalsIgnoreCase(myAddress.getHostAddress())) { 
-						IPADDRESS_TABLE.remove(myAddress.getHostAddress() + COLON + "6000");
+						IPADDRESS_TABLE.remove(myAddress.getHostAddress() + COLON + SERVER_PORT);
 						update_self(); 
 
 					} else { 
@@ -378,7 +381,7 @@ public class Server extends Thread {
 					return_data = "";
 
 				} // update new primary server
-				else if (message.trim().equalsIgnoreCase("NewPrimary")) { 
+				else if (message.trim().equalsIgnoreCase(NewPrimary)) { 
 
 					System.out.println("New primary: " + receivePacket.getAddress().getHostName());
 					PRIMARY_SERVER_IP = receivePacket.getAddress().getHostName(); 
@@ -393,21 +396,21 @@ public class Server extends Thread {
 					receivePacket = new DatagramPacket(receiveData, receiveData.length); 
 					serverSocket.receive(receivePacket); 
 
-					ByteArrayInputStream baos1 = new ByteArrayInputStream(receivePacket.getData()); 
-					ObjectInputStream oos1 = new ObjectInputStream(baos1); 
+					ByteArrayInputStream bais = new ByteArrayInputStream(receivePacket.getData()); 
+					ObjectInputStream ois = new ObjectInputStream(bais); 
 
-					IPADDRESS_TABLE = (HashMap<String, Integer>) (oos1.readObject());
+					IPADDRESS_TABLE = (HashMap<String, Integer>) (ois.readObject());
 					System.out.println("I am primary");
 					update_self();
 					return_data = "";
-				} 
+				}
 
 
 				// return the result of query to client
 				if ("INSERTED".equalsIgnoreCase(return_data) || "DELETED".equalsIgnoreCase(return_data)) 
 					return_data = ""; 
 				if (!return_data.equalsIgnoreCase("")) { 
-
+					// send retrieved data from db to the client
 					sendData = new byte[size]; 
 					InetAddress IPAddress = receivePacket.getAddress(); 
 					int port = receivePacket.getPort(); 
@@ -451,6 +454,7 @@ public class Server extends Thread {
 
 			String data = new String(packet.getData()); 
 
+			// data will be true:primaryServerIp:primaryServerPort for primary server
 			String[] message = data.trim().split(COLON); 
 			isPrimary = Boolean.parseBoolean(message[0]); 
 			PRIMARY_SERVER_IP = message[1]; 
@@ -487,7 +491,7 @@ public class Server extends Thread {
 	/**
 	 * Responses to other secondary servers that it is alive
 	 */
-	public void checkFailure() { 
+	public void checkIfAlive() { 
 
 		ObjectInputStream fromClient = null; 
 		ObjectOutputStream toClient = null; 
@@ -510,28 +514,17 @@ public class Server extends Thread {
 		} 
 	}
 
-	/**
-	 * The main program.
-	 * 
-	 * @param args		command line arguments(ignored)
-	 * @throws Exception
-	 */
-	public static void main(String args[]) throws Exception { 
-
-		Server updServer = new Server(); 
-		updServer.registerToBootstrap(); 
-		updServer.start(); 
-
-		FailureHandler handle = new FailureHandler(PRIMARY_SERVER_IP); 
+	public void checkFailure() throws Exception{
+		FailureHandler handle = null; 
 
 		while (true) {
-			
+
 			if(reportFailure){
 				handle = new FailureHandler(PRIMARY_SERVER_IP);
 				
 				// if this is primary server then respond to other servers that it is alive
 				if (isPrimary) {
-					updServer.checkFailure(); 
+					checkIfAlive(); 
 
 				} else { // check if primary server is alive by continuously pinging it
 					try {
@@ -554,5 +547,19 @@ public class Server extends Thread {
 				}
 			} 
 		} 
+	}
+	/**
+	 * The main program.
+	 * 
+	 * @param args		command line arguments(ignored)
+	 * @throws Exception
+	 */
+	public static void main(String args[]) throws Exception { 
+
+		Server updServer = new Server(); 
+		updServer.registerToBootstrap(); 
+		updServer.start(); 
+
+		updServer.checkFailure();
 	} 
 }

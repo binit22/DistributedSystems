@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ConnectException;
-import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -20,11 +19,9 @@ public class FailureHandler  {
 
 	private String serverIP;
 
-	public DatagramSocket serverBootstrap;
-
 	public Socket clientSocket = null;
-	ObjectInputStream fromServer = null;
-	ObjectOutputStream toServer = null;
+	private ObjectInputStream fromServer = null;
+	private ObjectOutputStream toServer = null;
 
 	public FailureHandler(String ip) {
 		serverIP = ip;
@@ -44,7 +41,7 @@ public class FailureHandler  {
 			fromServer = new ObjectInputStream(clientSocket.getInputStream());
 
 			toServer.writeObject("IsAlive");
-			String reply = (String)fromServer.readObject();
+			fromServer.readObject();
 
 		} catch(ConnectException ex){
 			throw new Exception();
